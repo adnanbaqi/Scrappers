@@ -1,0 +1,46 @@
+function YoutubeChannelScraper() {
+  var spreadSheet = SpreadsheetApp.getActiveSpreadsheet();
+  var activeSheet = spreadSheet.getActiveSheet();
+
+  var channelId = 'UC3AcGIlqVI4nJWCwHgHFXtg';
+  var apiKey = 'AIzaSyBqyJA5JARwyzKGTmGjt-79K5THaP6z-6I';
+  var totalVideos = 500;
+  var videosPerPage = 50;
+  var pages = Math.ceil(totalVideos / videosPerPage);
+
+  var videoData = [];
+
+  var nextPageToken = '';
+
+  for (var page = 0; page < pages; page++) {
+    var searchUrl = 'https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=' + videosPerPage + '&order=date&channelId=' + channelId + '&key=' + apiKey + '&pageToken=' + nextPageToken;
+
+    var searchResponse = UrlFetchApp.fetch(searchUrl);
+    var searchResult = JSON.parse(searchResponse.getContentText());
+
+    if (searchResult.items && searchResult.items.length > 0) {
+      var videoIds = searchResult.items.map(item => item.id.videoId).join(',');
+      var statsUrl = 'https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=' + videoIds + '&key=' + apiKey;
+      var statsResponse = UrlFetchApp.fetch(statsUrl);
+      var statsResult = JSON.parse(statsResponse.getContentText());
+
+      for (var i = 0; i < searchResult.items.length; i++) {
+        var item = searchResult.items[i];
+        var videoId = item.id.videoId;
+        var title = item.snippet.title;
+        var viewCount = statsResult.items[i].statistics.viewCount;
+        var likeCount = statsResult.items[i].statistics.likeCount;
+        var commentCount = statsResult.items[i].statistics.commentCount;
+
+        videoData.push([videoId, title,viewCount, likeCount, commentCount]);
+      }
+    }
+
+    nextPageToken = searchResult.nextPageToken;
+    if (!nextPageToken) {
+      break; // No more pages to fetch
+    }
+  }
+
+  activeSheet.getRange(2, 1, videoData.length, videoData[0].length).setValues(videoData);
+}
